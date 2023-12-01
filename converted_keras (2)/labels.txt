@@ -1,0 +1,9 @@
+0 Car
+1 Interior
+2 Engine
+3 Transmission
+4 Headlight
+5 Car Door
+6 Windshield wipers
+7 springs
+8 Tires
