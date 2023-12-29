@@ -1,4 +1,5 @@
 from keras.models import load_model
+import PIL
 from PIL import Image, ImageOps
 import numpy as np
 import os
@@ -24,15 +25,24 @@ def Predict_If_Car(images, file_paths, model, class_names):
     predictions = model.predict(data)
     
     for i, prediction in enumerate(predictions):
+        if not os.path.exists(file_paths[i]):
+            print(f"file not found: {file_paths[i]}")
+            continue
+        
+        
         index = np.argmax(prediction)
         class_name = class_names[index]
         confidence_score = f"{round((prediction[index])*100)}%"
         
         if index != 0:
-            os.remove(file_paths[i])
-            deleted += 1
-            print(f"{file_paths[i]} is {confidence_score} a {class_name[2:]} and has been deleted")
+            if os.path.exists(file_paths[i]):
+                os.remove(file_paths[i])
+                deleted += 1
+                print(f"{file_paths[i]} is {confidence_score} a {class_name[2:]} and has been deleted")
+            else:
+                print(f"File not found: {file_paths[i]}")
             continue
+        
         elif index == 0 and confidence_score != "100%":
             os.remove(file_paths[i])
             deleted += 1
@@ -52,8 +62,10 @@ class_names = open(r"C:\Users\Maste\Desktop\AI\converted_keras (2)\labels.txt", 
 
 deleted = 0
 total_files = 0
-BrandFile = rf"C:\Users\Maste\Desktop\AI\Cars\Porsche"
+BrandFile = rf"C:\Users\Maste\Desktop\AI\Cars\Renault"
 
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 for CarFile in os.listdir(BrandFile):
     
@@ -61,18 +73,29 @@ for CarFile in os.listdir(BrandFile):
         continue
         
     file_paths = [os.path.join(BrandFile, CarFile, picture) for picture in os.listdir(os.path.join(BrandFile, CarFile))]
+    filtered_file_paths = []
+    
     for file_path in file_paths:
         
-        if (file_path[-4:].lower() != ".jpg") and (file_path[-4:].lower() != ".png"):
-            print(f"{file_path} deleted for not being a jpg or png")
+        try:
+            Image.open(file_path)
+            
+        except (PIL.UnidentifiedImageError, OSError) as e:
+            print(f"deleted corrupted file: {file_path}")
+            os.remove(file_path)
             file_paths.remove(file_path)
             deleted += 1
             continue
         
-        if (file_path[-4:].lower() == ".jpg") or (file_path[-4:].lower() == ".png"):
-            total_files += 1
+        if (file_path[-4:].lower() != ".jpg") and (file_path[-4:].lower() != ".png") and (file_path[-5:].lower() != ".jfif"):
+            print(f"{file_path} deleted for not being a jpg or png")
+            os.remove(file_path)
+            file_paths.remove(file_path)
+            deleted += 1
+            continue
         
-    
+        total_files += 1 
+        
         if len(file_path) > 250:
             old_file_path = file_path
             new_file_path = f"{BrandFile}\{CarFile}\download({errors}).jpg"
@@ -81,10 +104,13 @@ for CarFile in os.listdir(BrandFile):
             os.rename(old_file_path, new_file_path)
             errors += 1
             continue
+            
         
-    batch_size = 100
-    for i in range(0, len(file_paths), batch_size):
-        batch_file_paths = file_paths[i:i+batch_size]
+        filtered_file_paths.append(file_path)
+    
+    batch_size = 25
+    for i in range(0, len(filtered_file_paths), batch_size):
+        batch_file_paths = filtered_file_paths[i:i+batch_size]
         batch_images = preprocess_images(batch_file_paths)
         Predict_If_Car(batch_images, batch_file_paths, model, class_names)
 
@@ -95,4 +121,3 @@ total_deleted += deleted
 print(f"Finished Predictions, {total_deleted} files have been deleted, {total_files - total_deleted} have been kept")
 
 shutil.move(BrandFile, r"C:\Users\Maste\Desktop\AI\Finished Cars")
-
